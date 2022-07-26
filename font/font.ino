@@ -62,44 +62,69 @@ void setup(void) {
 void loop() {
 
     int xpos =  0;
-    int ypos = 300;
+    int ypos = 220;
 
+    int ox = 0;
+    int oy = 0;
+
+    int flag = 1;
+    int point = 0;
     // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     // Select different fonts to draw on screen using the print class
     // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    header("Your Point", TFT_NAVY, point);
     
-    header("Using print() method", TFT_NAVY);
-    for (int i = 0; i < 255; i++){
-        tft.fillRect(xpos,ypos - i - 16,320,32,TFT_BLACK);
-        tft.setTextColor(TFT_YELLOW);
-        tft.setCursor(xpos, ypos - i);    // Set cursor near top left corner of screen
-        tft.setFreeFont(FSB9);   // Select Free Serif 9 point font, could use:
-        if (digitalRead(WIO_KEY_A) == LOW){
-            tft.print("A! Serif Bold 9pt");  // Print the font name onto the TFT screen
-        }else if (digitalRead(WIO_KEY_B) == LOW){
-            tft.print("B! Serif Bold 9pt");  // Print the font name onto the TFT screen
-        }else if (digitalRead(WIO_KEY_C) == LOW){
-            tft.print("C! Serif Bold 9pt");  // Print the font name onto the TFT screen
-        }else {
-            tft.print("Serif Bold 9pt");  // Print the font name onto the TFT screen
+    while(1){
+        tft.fillRect(0,30,320,210,TFT_BLACK);
+        if (flag){
+            flag = 0;
+            ox = random(0, 300);
+            oy = 45;
+        }else{
+            oy = oy + 10;
+            if (ox < xpos + 10 && ox > xpos - 10){
+                if (oy < ypos + 10 && oy > ypos - 10){
+                    flag = 1;
+                    point += 1;
+                    header("Your Point", TFT_NAVY, point);
+                }
+            }
+            if (oy > 240){
+                flag = 1;
+            }
         }
+        if(!flag){
+            tft.setTextColor(TFT_RED);
+            tft.setCursor(ox, oy);
+            tft.setFreeFont(FSB9);   // Select Free Serif 9 point font, could use:
+            tft.print("o");
+        }
+
+        
+        
+        tft.setTextColor(TFT_YELLOW);
+        if (digitalRead(WIO_KEY_C) == LOW && xpos > 0){
+            xpos = xpos - 10;
+        }else if (digitalRead(WIO_KEY_A) == LOW && xpos < 300){
+            xpos = xpos + 10;
+        }
+        tft.setCursor(xpos, ypos);    // Set cursor near top left corner of screen
+        tft.setFreeFont(FSB9);   // Select Free Serif 9 point font, could use:
+        tft.print("P");
         
         delay(10);
     }
-    // For comaptibility with Adafruit_GFX library the text background is not plotted when using the print class
-    // even if we specify it.
-    
-    delay(1000);
 }
 
 // Print the header for a display screen
-void header(const char* string, uint16_t color) {
+void header(const char* string, uint16_t color, int point) {
     tft.fillScreen(color);
     tft.setTextSize(1);
     tft.setTextColor(TFT_MAGENTA, TFT_BLUE);
     tft.fillRect(0, 0, 320, 30, TFT_BLUE);
     tft.setTextDatum(TC_DATUM);
     tft.drawString(string, 160, 2, 4); // Font 4 for fast drawing with background
+    tft.drawString(String(point), 240, 2, 4);
 }
 
 // Draw a + mark centred on x,y
