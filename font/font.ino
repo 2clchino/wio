@@ -53,6 +53,7 @@ void setup(void) {
     pinMode(WIO_KEY_A, INPUT_PULLUP);
     pinMode(WIO_KEY_B, INPUT_PULLUP);
     pinMode(WIO_KEY_C, INPUT_PULLUP);
+    
     tft.begin();
 
     tft.setRotation(3);
@@ -104,8 +105,10 @@ void loop() {
         
         tft.setTextColor(TFT_YELLOW);
         if (digitalRead(WIO_KEY_C) == LOW && xpos > 0){
+            Serial.println("C Key pressed");
             xpos = xpos - 10;
         }else if (digitalRead(WIO_KEY_A) == LOW && xpos < 300){
+            Serial.println("A Key pressed");
             xpos = xpos + 10;
         }
         tft.setCursor(xpos, ypos);    // Set cursor near top left corner of screen
