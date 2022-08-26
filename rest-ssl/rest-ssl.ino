@@ -18,7 +18,7 @@ void setup() {
   Serial.println(WiFi.localIP());
   client.setCACert(root_ca);
 }
- 
+
 void loop() {
   if(&client) {
     {
