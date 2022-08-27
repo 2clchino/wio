@@ -2,6 +2,9 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include <SPI.h>
+#include <Seeed_FS.h>
+#include "SD/Seeed_SD.h"
 #include "env.h"
 #include "Free_Fonts.h"
 #include "SPI.h"
@@ -13,12 +16,13 @@ WiFiClientSecure client;
 int game_state = 0;
 int highscore = 0;
 int point = 0;
+int regterm = 0;
+String token;
+File myFile;
 
 void setup() {
-
   Serial.begin(115200);
   WiFi.begin(ssid, password);
-
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.println("Connecting..");
@@ -31,17 +35,43 @@ void setup() {
   pinMode(WIO_KEY_C, INPUT_PULLUP);
   tft.begin();
   tft.setRotation(3);
+
+  Serial.print("Initializing SD card...");
+  if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
+    Serial.println("initialization failed!");
+    while (1);
+  }
+  read_token();
+  Serial.println("initialization done.");
+}
+
+void read_token(){
+  myFile = SD.open("token.txt", FILE_READ);
+  if (myFile) {
+    Serial.println("token.txt: ");
+
+    // read from the file until there's nothing else in it:
+    while (myFile.available()) {
+      Serial.println(myFile.read());
+      token = String(myFile.read());
+    }
+    // close the file:
+    myFile.close();
+  } else {
+    Serial.println("error opening token.txt");
+    regterm = 1;
+  }
 }
 
 int send_score(int score) {
   HTTPClient https;
   StaticJsonDocument<JSON_OBJECT_SIZE(2)> json_array;
-  json_array["Name"] = "Player1";
-  json_array["Score"] = score;
+  json_array["token"] = token;
+  json_array["score"] = score;
   serializeJson(json_array, json_string, sizeof(json_string));
   Serial.print("[HTTPS] begin...\n");
   https.addHeader("Content-Type", "application/json");
-  if (https.begin(client, "https://cl2chino.com:8082/score?format=json")) {  // HTTPS
+  if (https.begin(client, "https://cl2chino.com:8082/wio/score?format=json")) {  // HTTPS
     Serial.print("[HTTPS] POST...\n");
     int httpCode = https.POST(json_string);
     if (httpCode > 0) {
@@ -63,6 +93,36 @@ int send_score(int score) {
   return -1;
 }
 
+int reg_term () {
+  HTTPClient https;
+  Serial.print("[HTTPS] begin...\n");
+  if (https.begin(client, "https://cl2chino.com:8082/wio/reg?format=json")) {  // HTTPS
+    int httpCode = https.GET();
+    if (httpCode > 0) {
+      Serial.printf("[HTTPS] GET... code: %d\n", httpCode);
+      if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+        Stream* resp = https.getStreamPtr();
+        DynamicJsonDocument json_response(255);
+        deserializeJson(json_response, *resp);
+        myFile = SD.open("token.txt", FILE_WRITE);
+        if (myFile) {
+          myFile.println(json_response["token"]);
+          myFile.close();
+          return 0;
+        } else {
+          Serial.println("error opening token.txt");
+        }
+      }
+    } else {
+      Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str());
+    }
+    https.end();
+  } else {
+    Serial.printf("[HTTPS] Unable to connect\n");
+  }
+  return -1;
+}
+
 void loop() {
   int m_height = 220;
   int m_width = 320;
@@ -71,19 +131,23 @@ void loop() {
   int ox = 0;
   int oy = 0;
   int flag = 1;
-  
+
   switch (game_state) {
     case 0:
       tft.fillRect(0, 30, 320, 210, TFT_BLACK);
       header("Getting your HighScore ...", TFT_NAVY, -1);
       while (1) {
         if (&client) {
-          {
+          if (regterm == 1){
+            highscore = reg_term();
+            read_token();
+          }else{
             highscore = send_score(point);
-            point = 0;
-            game_state = 1;
-            break;
           }
+          point = 0;
+          if (highscore > -1)
+            game_state = 1;
+          break;
         } else {
           Serial.println("Unable to create client");
         }
