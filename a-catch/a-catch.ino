@@ -22,6 +22,8 @@ File myFile;
 
 void setup() {
   Serial.begin(115200);
+  while (!Serial) {
+  }
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -35,7 +37,7 @@ void setup() {
   pinMode(WIO_KEY_C, INPUT_PULLUP);
   tft.begin();
   tft.setRotation(3);
-
+  
   Serial.print("Initializing SD card...");
   if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
     Serial.println("initialization failed!");
@@ -48,15 +50,15 @@ void setup() {
 void read_token(){
   myFile = SD.open("token.txt", FILE_READ);
   if (myFile) {
-    Serial.println("token.txt: ");
+    Serial.print("token.txt: ");
 
     // read from the file until there's nothing else in it:
     while (myFile.available()) {
-      Serial.println(myFile.read());
-      token = String(myFile.read());
+      token = myFile.readString();
+      Serial.println(token);
     }
-    // close the file:
     myFile.close();
+    regterm = 0;
   } else {
     Serial.println("error opening token.txt");
     regterm = 1;
@@ -68,6 +70,7 @@ int send_score(int score) {
   StaticJsonDocument<JSON_OBJECT_SIZE(2)> json_array;
   json_array["token"] = token;
   json_array["score"] = score;
+  Serial.println(token);
   serializeJson(json_array, json_string, sizeof(json_string));
   Serial.print("[HTTPS] begin...\n");
   https.addHeader("Content-Type", "application/json");
@@ -106,7 +109,9 @@ int reg_term () {
         deserializeJson(json_response, *resp);
         myFile = SD.open("token.txt", FILE_WRITE);
         if (myFile) {
-          myFile.println(json_response["token"]);
+          const char* tk = json_response["token"];
+          token = String(tk);
+          myFile.println(String(tk));
           myFile.close();
           return 0;
         } else {
@@ -142,11 +147,13 @@ void loop() {
             highscore = reg_term();
             read_token();
           }else{
+            // read_token();
             highscore = send_score(point);
           }
           point = 0;
-          if (highscore > -1)
+          if (highscore > -1){
             game_state = 1;
+          }
           break;
         } else {
           Serial.println("Unable to create client");
