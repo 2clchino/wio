@@ -1,13 +1,9 @@
-#include <AtWiFi.h>
+#include "rpcWiFi.h"
 #include <millisDelay.h>
 #include <Wire.h>
 #include "RTC_SAMD51.h"
 #include "DateTime.h"
- 
- 
-const char ssid[] = "Your-network"; // add your required ssid
-const char password[] = "Your-password"; // add your own netywork password
- 
+#include "env.h"
 millisDelay updateDelay; // the update delay object. used for ntp periodic update.
  
 unsigned int localPort = 2390;      // local port to listen for UDP packets
@@ -41,7 +37,19 @@ RTC_SAMD51 rtc;
  
 // for use by the Adafuit RTClib library
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
- 
+void connectToWiFi() {
+    Serial.println("Connecting to WiFi network: " + String(ssid));
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.println("Connecting to WiFi..");
+        WiFi.begin(ssid, password);
+    }
+    Serial.println("Connected to the WiFi network");
+    Serial.print("IP Address: ");
+    Serial.println (WiFi.localIP()); // prints out the device's IP address
+}
+
 void setup() {
  
     Serial.begin(115200);
@@ -50,7 +58,7 @@ void setup() {
  
  
     // setup network before rtc check 
-    connectToWiFi(ssid, password);
+    connectToWiFi();
  
     // get the time via NTP (udp) call to time server
     // getNTPtime returns epoch UTC time adjusted for timezone but not daylight savings
@@ -109,28 +117,6 @@ void loop() {
         }
     }
 }
- 
- 
-void connectToWiFi(const char* ssid, const char* pwd) {
-    Serial.println("Connecting to WiFi network: " + String(ssid));
- 
-    // delete old config
-    WiFi.disconnect(true);
- 
-    Serial.println("Waiting for WIFI connection...");
- 
-    //Initiate connection
-    WiFi.begin(ssid, pwd);
- 
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-    }
- 
-    Serial.println("Connected.");
-    printWifiStatus();
- 
-}
- 
  
 unsigned long getNTPtime() {
  
