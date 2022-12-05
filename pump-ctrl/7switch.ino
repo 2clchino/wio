@@ -45,11 +45,16 @@ void toggle_relay(){
         digitalWrite(relay[ch], onoff[ch]);
 }
 
-void ShowPompState(int state){
-    int SW_ROW = (MAX_CH + SW_COLUMN - 1) / SW_COLUMN;
+void ShowTime(String *now_time){
+    tft.setCursor(10, 25);
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_WHITE);
     tft.setFreeFont(FSB9);
+    tft.print(*now_time);
+}
+
+void ShowPompState(int state){
+    int SW_ROW = (MAX_CH + SW_COLUMN - 1) / SW_COLUMN;
     ChangeBin(state, &onoff[0]);
     for (int i = 0; i < SW_ROW; i++){
         for (int j = 0; j < SW_COLUMN; j++){
