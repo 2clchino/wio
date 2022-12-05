@@ -32,7 +32,8 @@ void rtc_setup(int update_interval) {
  
 }
 
-void rtc_update(){
+String now_time = "";
+String *rtc_update(){
     if (updateDelay.justFinished()) { // 12 hour loop
         // repeat timer
         updateDelay.repeat(); // repeat
@@ -41,6 +42,7 @@ void rtc_update(){
         devicetime = getNTPtime();
         if (devicetime == 0) {
             Serial.println("Failed to get time from network time server.");
+            now = rtc.now();
         }
         else {
             rtc.adjust(DateTime(devicetime));
@@ -52,6 +54,8 @@ void rtc_update(){
             Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
         }
     }
+    now_time = now.timestamp(DateTime::TIMESTAMP_FULL);
+    return &now_time;
 }
 
 unsigned long getNTPtime() {

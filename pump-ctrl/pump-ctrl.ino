@@ -64,6 +64,16 @@ int unset_cron(const char *_cid){
     return cid;
 }
 
+int edit_state(const char *_state){
+    int state_num = 0;
+    int res = sscanf(_state, "%d", &state_num);
+    Serial.println(state_num);
+    if (!(state_num < 255 && res))
+        return -1;
+    sw_state = state_num;
+    return sw_state;
+}
+
 char *show_alarm(Alarm *alarm, int index){
     Serial.println(alarm->alarm_cron);
     StaticJsonDocument<JSON_OBJECT_SIZE(4) + 32> json_obj;
@@ -81,6 +91,7 @@ char *show_alarms(){
     for (int i = 0; i < almidx; i++){
         json_array[i] = show_alarm(&almptr[i], i);
     }
+    json_array[almidx] = sw_state;
     serializeJson(json_array, alms_json);
     return alms_json;
 }
@@ -125,6 +136,18 @@ void setup() {
             server.send(500, "text/plain", "Format is wrong !!");
         }
     });
+    server.on("/edit_state", HTTP_POST, []() {
+        String json_txt = server.arg("plain");
+        DynamicJsonDocument json_response(255);
+        deserializeJson(json_response, json_txt);
+        String state = json_response["state"];  // server.arg("id");
+        Serial.println(state);
+        if (edit_state(state.c_str()) != -1){
+            server.send(200, "text/plain", "Success to edit state !!");
+        } else {
+            server.send(500, "text/plain", "Format is wrong !!");
+        }
+    });
     server.on("/show-alarms", HTTP_GET, []() {
         server.send(200, "text/plain", show_alarms());
     });
@@ -134,7 +157,7 @@ void setup() {
 }
  
 void loop() {
-    rtc_update();
+    ShowTime(rtc_update());
     Cron.delay();
     ShowPompState(sw_state);
     delay(1000);
