@@ -7,11 +7,9 @@ const int WIDTH = 320;
 const int HEIGHT = 120;
 const int Y_OFFSET = 120;
 
-#define MAX_CH 7
 int relay[MAX_CH] = {BCM4, BCM17, BCM27, BCM22, BCM10, BCM9, BCM11};
 int rstat[MAX_CH] = {BCM0, BCM5, BCM6, BCM13, BCM19, BCM26, BCM21};
 int onoff[MAX_CH] = {0};
-int state[MAX_CH] = {0};
 
 void SetupDisplay(){
     pinMode(WIO_KEY_A, INPUT_PULLUP);
@@ -56,6 +54,7 @@ void ShowTime(String *now_time){
 
 void ShowPompState(int state){
     int SW_ROW = (MAX_CH + SW_COLUMN - 1) / SW_COLUMN;
+    int *p_state = &pump_state[0];
     ChangeBin(state, &onoff[0]);
     toggle_relay();
     for (int i = 0; i < SW_ROW; i++){
@@ -64,6 +63,7 @@ void ShowPompState(int state){
                 return;
             int ch = i * SW_COLUMN + j;
             int m = digitalRead(rstat[ch]);
+            p_state[ch] = m;
             char mode[10];
             int x_area = WIDTH / SW_COLUMN;
             int y_area = HEIGHT / SW_ROW;
@@ -74,6 +74,7 @@ void ShowPompState(int state){
                 strcpy(mode, "Manual");
                 tft.setCursor(x-28, y-5);
             } else {
+                p_state[ch] = 1 + onoff[ch];
                 strcpy(mode, "Auto");
                 tft.setCursor(x, y);
                 tft.fillCircle(x,y,7,TFT_WHITE);

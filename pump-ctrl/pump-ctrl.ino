@@ -10,6 +10,7 @@ int almidx = 0;
 int sw_state = 0;
 CronId id;
 char alm_json[256];
+char pump_json[256];
 char alms_json[256*256];
 
 void handleRoot() {
@@ -27,6 +28,13 @@ void handleNotFound() {
     else{
         server.send(404, "text/plain", "page not found");
     }
+}
+
+void alarmMatchCron(){
+    id = Cron.getTriggeredCronId();
+    sw_state = almptr[id].state;
+    Serial.print("Edit state by Cron");
+    Serial.println(id);
 }
 
 int set_cron(const char *nm, const char *tm, const char *st){
@@ -67,7 +75,6 @@ int unset_cron(const char *_cid){
 int edit_state(const char *_state){
     int state_num = 0;
     int res = sscanf(_state, "%d", &state_num);
-    Serial.println(state_num);
     if (!(state_num < 255 && res))
         return -1;
     sw_state = state_num;
@@ -97,20 +104,15 @@ char *show_alarms(){
 }
 
 char *show_states(){
-    StaticJsonDocument<JSON_OBJECT_SIZE(256)> json_array;
-    for (int i = 0; i < almidx; i++){
-        json_array[i] = show_alarm(&almptr[i], i);
+    StaticJsonDocument<128> doc;
+    JsonArray json_obj = doc.createNestedArray("pumps");
+    int *p_state = &pump_state[0];
+    for (int i = 0; i < MAX_CH; i++){
+        json_obj.add(p_state[i]);
     }
-    //json_array[almidx] = sw_state;
-    serializeJson(json_array, alms_json);
-    return alms_json;
-}
-
-void alarmMatchCron(){
-    id = Cron.getTriggeredCronId();
-    sw_state = almptr[id].state;
-    Serial.print("Edit state by Cron");
-    Serial.println(id);
+    serializeJson(doc, pump_json);
+    Serial.println(pump_json);
+    return pump_json;
 }
 
 void setup() {
@@ -146,22 +148,21 @@ void setup() {
             server.send(500, "text/plain", "Format is wrong !!");
         }
     });
-    server.on("/edit-state", HTTP_POST, []() {
+    server.on("/edit-pumps", HTTP_POST, []() {
         String json_txt = server.arg("plain");
         DynamicJsonDocument json_response(255);
         deserializeJson(json_response, json_txt);
         String state = json_response["state"];  // server.arg("id");
-        Serial.println(state);
         if (edit_state(state.c_str()) != -1){
             server.send(200, "text/plain", "Success to edit state !!");
         } else {
             server.send(500, "text/plain", "Format is wrong !!");
         }
     });
-    server.on("/get-state", HTTP_GET, [] () {
-        //server.send(200, "text/plain", sw_state);
+    server.on("/get-pumps", HTTP_GET, [] () {
+        server.send(200, "text/plain", show_states());
     });
-    server.on("/show-alarms", HTTP_GET, []() {
+    server.on("/get-alarms", HTTP_GET, []() {
         server.send(200, "text/plain", show_alarms());
     });
     server.onNotFound(handleNotFound);
