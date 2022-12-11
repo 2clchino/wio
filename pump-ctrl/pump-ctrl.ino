@@ -91,7 +91,17 @@ char *show_alarms(){
     for (int i = 0; i < almidx; i++){
         json_array[i] = show_alarm(&almptr[i], i);
     }
-    json_array[almidx] = sw_state;
+    //json_array[almidx] = sw_state;
+    serializeJson(json_array, alms_json);
+    return alms_json;
+}
+
+char *show_states(){
+    StaticJsonDocument<JSON_OBJECT_SIZE(256)> json_array;
+    for (int i = 0; i < almidx; i++){
+        json_array[i] = show_alarm(&almptr[i], i);
+    }
+    //json_array[almidx] = sw_state;
     serializeJson(json_array, alms_json);
     return alms_json;
 }
@@ -136,7 +146,7 @@ void setup() {
             server.send(500, "text/plain", "Format is wrong !!");
         }
     });
-    server.on("/edit_state", HTTP_POST, []() {
+    server.on("/edit-state", HTTP_POST, []() {
         String json_txt = server.arg("plain");
         DynamicJsonDocument json_response(255);
         deserializeJson(json_response, json_txt);
@@ -147,6 +157,9 @@ void setup() {
         } else {
             server.send(500, "text/plain", "Format is wrong !!");
         }
+    });
+    server.on("/get-state", HTTP_GET, [] () {
+        //server.send(200, "text/plain", sw_state);
     });
     server.on("/show-alarms", HTTP_GET, []() {
         server.send(200, "text/plain", show_alarms());

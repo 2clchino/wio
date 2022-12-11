@@ -11,6 +11,7 @@ const int Y_OFFSET = 120;
 int relay[MAX_CH] = {BCM4, BCM17, BCM27, BCM22, BCM10, BCM9, BCM11};
 int rstat[MAX_CH] = {BCM0, BCM5, BCM6, BCM13, BCM19, BCM26, BCM21};
 int onoff[MAX_CH] = {0};
+int state[MAX_CH] = {0};
 
 void SetupDisplay(){
     pinMode(WIO_KEY_A, INPUT_PULLUP);
@@ -42,7 +43,7 @@ void ChangeBin(int dec, int *bin)
 
 void toggle_relay(){
     for (int ch=0; ch<MAX_CH; ch++)
-        digitalWrite(relay[ch], onoff[ch]);
+        digitalWrite(relay[ch], !onoff[ch]);
 }
 
 void ShowTime(String *now_time){
@@ -56,6 +57,7 @@ void ShowTime(String *now_time){
 void ShowPompState(int state){
     int SW_ROW = (MAX_CH + SW_COLUMN - 1) / SW_COLUMN;
     ChangeBin(state, &onoff[0]);
+    toggle_relay();
     for (int i = 0; i < SW_ROW; i++){
         for (int j = 0; j < SW_COLUMN; j++){
             if (((j+1) * (i+1)) > MAX_CH)
@@ -63,7 +65,6 @@ void ShowPompState(int state){
             int ch = i * SW_COLUMN + j;
             int m = digitalRead(rstat[ch]);
             char mode[10];
-            
             int x_area = WIDTH / SW_COLUMN;
             int y_area = HEIGHT / SW_ROW;
             int x = x_area * j + x_area / 2;
@@ -88,7 +89,6 @@ void ShowPompState(int state){
             tft.print(ch + 1);
         }
     }
-    toggle_relay();
 }
 /*
 void loop() {
