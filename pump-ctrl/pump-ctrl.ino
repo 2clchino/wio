@@ -12,6 +12,7 @@ CronId id;
 char alm_json[256];
 char pump_json[256];
 char alms_json[256*256];
+String now_time = "";
 
 void handleRoot() {
     server.send(200, "text/plain", "hello from Wio Terminal!");
@@ -171,9 +172,11 @@ void setup() {
 }
  
 void loop() {
-    ShowTime(rtc_update());
-    Cron.delay();
+    rtc_update();
+    now = rtc.now();
+    now_time = now.timestamp(DateTime::TIMESTAMP_DATE) + "  " + now.timestamp(DateTime::TIMESTAMP_TIME);
+    ShowTime(&now_time);
     ShowPompState(sw_state);
-    delay(1000);
     server.handleClient();
+    Cron.delay(500);
 }
