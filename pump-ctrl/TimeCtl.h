@@ -10,7 +10,7 @@ unsigned int localPort = 2390;      // local port to listen for UDP packets
  
 // switch between local and remote time servers
 // comment out to use remote server
-#define USELOCALNTP
+// #define USELOCALNTP
  
 #ifdef USELOCALNTP
     char timeServer[] = "192.168.11.3"; // local NTP server 
@@ -37,9 +37,3 @@ RTC_SAMD51 rtc;
  
 // for use by the Adafuit RTClib library
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-
-typedef struct _ALARM {
-    char *alarm_name;
-    char *alarm_cron;
-    int state;
-} Alarm;
