@@ -36,7 +36,6 @@ void rtc_update(){
     if (updateDelay.justFinished()) { // 12 hour loop
         // repeat timer
         updateDelay.repeat(); // repeat
- 
         // update rtc time
         devicetime = getNTPtime();
         if (devicetime == 0) {
@@ -45,7 +44,6 @@ void rtc_update(){
         }
         else {
             rtc.adjust(DateTime(devicetime));
-            Serial.println("");
             Serial.println("rtc time updated.");
             // get and print the adjusted rtc time
             now = rtc.now();
@@ -53,6 +51,16 @@ void rtc_update(){
             Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
         }
     }
+    struct tm tm_newtime;
+    tm_newtime.tm_year = now.year() - 1900;
+    tm_newtime.tm_mon = now.month() - 1;
+    tm_newtime.tm_mday = now.day();
+    tm_newtime.tm_hour = now.hour();
+    tm_newtime.tm_min = now.minute();
+    tm_newtime.tm_sec = now.second();
+    tm_newtime.tm_isdst = 0;
+    timeval tv = { mktime(&tm_newtime), 0 };
+    settimeofday(&tv, nullptr);
     return;
 }
 
@@ -72,7 +80,6 @@ unsigned long getNTPtime() {
         delay(1000);
         if (udp.parsePacket()) {
             Serial.println("udp packet received");
-            Serial.println("");
             // We've received a packet, read the data from it
             udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
  
