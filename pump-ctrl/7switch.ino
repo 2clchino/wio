@@ -21,22 +21,6 @@ void SetupDisplay(){
     tft.begin();
     tft.setRotation(3);
 }
-/*
-void setup() {
-    Serial.begin(115200);
-    while (!Serial) {
-    }
-    SetupDisplay();
-}
-*/
-
-void ChangeBin(int dec, int *bin)
-{
-    for (int i = 0; i < MAX_CH; i++) {
-        bin[i] = dec % 2;
-        dec = dec / 2;
-    }
-}
 
 void toggle_relay(){
     for (int ch=0; ch<MAX_CH; ch++)
