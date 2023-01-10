@@ -3,14 +3,15 @@
 
 #define MAX_CH 7
 typedef struct _PUMP {
-    char *pump_name;
+    String pump_name;
     int state; // Backend -> FrontEnd Packet 0: manual, 1: auto off, 2: auto on
 } Pump;
 
 typedef struct _ALARM {
-    char *alarm_cron;
-    char *state; // FrontEnd -> Backend Packet -1: not change, 0: change->off, 1: change->on
+    int awake_time;
+    int week_day;   // 0: not change, 1: change binary encoded
+    int state;      // 0: not change, 1: change->off, 2: change->on ternary encoded
 } Alarm;
 
-Pump current_state[MAX_CH] = {0};
+Pump current_state[MAX_CH];
 int onoff[MAX_CH] = {0};
