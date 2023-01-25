@@ -1,65 +1,63 @@
-#include "RTC_SAMD51.h"
-#include "DateTime.h"
- 
-RTC_SAMD51 rtc;
-void setup()
-{
-    rtc.begin();
- 
-    Serial.begin(115200);
- 
-    while (!Serial)
-    {
-        ;
-    }
- 
-    DateTime now = DateTime(F(__DATE__), F(__TIME__));
-    Serial.println("adjust time!");
-    rtc.adjust(now);
- 
-    now = rtc.now();
- 
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
- 
-    DateTime alarm = DateTime(now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second() + 15);
- 
-    rtc.setAlarm(0,alarm); // match after 15 seconds
-    rtc.enableAlarm(0, rtc.MATCH_HHMMSS); // match Every Day
- 
-    rtc.attachInterrupt(alarmMatch); // callback whlie alarm is match
- 
+//#include <Wire.h>
+#include "RTClib.h"
+
+RTC_PCF8523 rtc;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial)
+  {
+      ;
+  }
+  Serial.println("Setup Start");
+  if(!rtcSetup()){
+    Serial.println("RTC false loop");
+    while(1);
+  }
+  Serial.println("rtc ok.");  
 }
- 
-void loop()
-{
+
+bool rtcSetup(){
+  Serial.println("rtc setup");
+  if(!rtc.begin()){
+    Serial.println("Could not find RTC module!");
+    return false;
+  }
+  Serial.println("begin ok.");
+  if(!rtc.initialized()){
+    Serial.println("RTC is not Running!");
+
+    // 時刻を調整する関数。最初の一回だけ動作させればOKです。
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
+  return true;
 }
- 
-void alarmMatch(uint32_t flag)
-{
- 
-    Serial.println("Alarm Match!");
-    DateTime now = rtc.now();
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
+
+void loop () {
+  // 時刻の読み出し
+  DateTime time = rtc.now();
+  printSerialTime(time);
+
+  delay(1000);
+}
+
+// シリアルモニターに打刻する
+void printSerialTime(DateTime time){
+    Serial.print(time.year(), DEC);
+    Serial.print("/");
+    Serial.print(time.month(), DEC);
+    Serial.print("/");
+    Serial.print(time.day(), DEC);
+    Serial.print(" (");
+    Serial.print(daysOfTheWeek[time.dayOfTheWeek()]);
+    Serial.print(") ");
+    Serial.print(time.hour(), DEC);
+    Serial.print(":");
+    Serial.print(time.minute(), DEC);
+    Serial.print(":");
+    Serial.print(time.second(), DEC);
+    Serial.println(); 
 }
