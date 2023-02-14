@@ -4,13 +4,13 @@
 #define MAX_CH 7
 typedef struct _PUMP {
     String pump_name;
-    int state; // Backend -> FrontEnd Packet 0: manual, 1: auto off, 2: auto on
+    int state; // manual: 0, auto off: 1, auto on: 2 
 } Pump;
 
 typedef struct _ALARM {
     int awake_time;
-    int week_day;   // 0: not change, 1: change binary encoded
-    int state;      // 0: not change, 1: change->off, 2: change->on ternary encoded
+    int week_day;   // not change: 0, change: 1                       ( binary encoded )
+    int state;      // not change: 0, change->off: 1 , change->on: 2  ( ternary encoded )
 } Alarm;
 
 Pump current_state[MAX_CH];
