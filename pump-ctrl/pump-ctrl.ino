@@ -1,7 +1,6 @@
 #include "TimeCtl.h"
 #include "7switch.h"
 #include <WebServer.h>
-#include <ArduinoJson.h>
 #include <RPCmDNS.h>
 
 WebServer server(80);
@@ -58,14 +57,13 @@ void decode_state(const char *state_text){
     DeserializationError error = deserializeJson(pump, state_text);
     for (int i = 0; i < MAX_CH; i++){
         String tmp = pump[i];
-        Serial.println(tmp);
         StaticJsonDocument<96> cur;
         deserializeJson(cur, tmp);
         String _name = cur["name"];
         int _sw = cur["state"];
         pumptr[i].pump_name = _name;
         pumptr[i].state = _sw;
-        onoffptr[i] = _sw;
+        onoffptr[i] = _sw - 1;
     }
 }
 

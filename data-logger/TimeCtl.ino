@@ -8,12 +8,16 @@ void rtc_setup(int update_interval) {
     // time
     devicetime = getNTPtime();
     // check if rtc present
-    if (devicetime == 0) {
-        Serial.println("Failed to get time from network time server.");
-    }
     if (!rtc.begin()) {
         Serial.println("Couldn't find RTC");
         while (1) delay(10); // stop operating
+    }
+    if (devicetime == 0) {
+        devicetime = getServertime();
+        if (devicetime == 0) {
+            now = rtc.now();
+            return;
+        }
     }
     // get and print the current rtc time
     now = rtc.now();
@@ -32,6 +36,29 @@ void rtc_setup(int update_interval) {
  
 }
 
+unsigned long getServertime() {
+    Serial.println("Failed to get time from network time server.");
+    HTTPClient http;
+    http.begin(timeServerSub + "/getdate"); //HTTP
+    Serial.println("Use Golang Server Time");
+    int httpCode = http.GET();
+    unsigned long adjustedTime;
+    if(httpCode > 0) {
+        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+        if(httpCode == HTTP_CODE_OK) {
+            Stream* resp = http.getStreamPtr();
+            DynamicJsonDocument json_response(255);
+            deserializeJson(json_response, *resp);
+            adjustedTime = json_response["date"];
+            adjustedTime += tzOffset;
+        }
+    } else {
+        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+    http.end();
+    return adjustedTime;
+}
+
 void rtc_update(){
     if (updateDelay.justFinished()) { // 12 hour loop
         // repeat timer
@@ -39,16 +66,17 @@ void rtc_update(){
         // update rtc time
         devicetime = getNTPtime();
         if (devicetime == 0) {
-            Serial.println("Failed to get time from network time server.");
-            now = rtc.now();
+            devicetime = getServertime();
         }
-        else {
+        if (devicetime != 0) {
             rtc.adjust(DateTime(devicetime));
             Serial.println("rtc time updated.");
             // get and print the adjusted rtc time
             now = rtc.now();
             Serial.print("Adjusted RTC time is: ");
             Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
+        } else {
+            now = rtc.now();
         }
     }
     return;
@@ -85,14 +113,6 @@ unsigned long getNTPtime() {
             const unsigned long seventyYears = 2208988800UL;
             // subtract seventy years:
             unsigned long epoch = secsSince1900 - seventyYears;
- 
-            // adjust time for timezone offset in secs +/- from UTC
-            // WA time offset from UTC is +8 hours (28,800 secs)
-            // + East of GMT
-            // - West of GMT
-            long tzOffset = 32400UL;
- 
-            // WA local time 
             unsigned long adjustedTime;
             return adjustedTime = epoch + tzOffset;
         }
