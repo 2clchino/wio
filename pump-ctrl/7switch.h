@@ -15,3 +15,4 @@ typedef struct _ALARM {
 
 Pump current_state[MAX_CH];
 int onoff[MAX_CH] = {0};
+int rstat[MAX_CH] = {BCM0, BCM5, BCM6, BCM13, BCM19, BCM26, BCM21};
