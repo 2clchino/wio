@@ -6,6 +6,7 @@
 #include "RTC_SAMD51.h"
 #include "DateTime.h"
 #include "env.h"
+#include "7switch.h"
 millisDelay updateDelay; // the update delay object. used for ntp periodic update.
  
 unsigned int localPort = 2390;      // local port to listen for UDP packets
@@ -40,6 +41,8 @@ unsigned long devicetime;
 long tzOffset = 32400UL;
 
 RTC_SAMD51 rtc;
+
+String time_str = "";
  
 // for use by the Adafuit RTClib library
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };

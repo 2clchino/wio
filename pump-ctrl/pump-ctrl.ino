@@ -1,16 +1,16 @@
 #include "TimeCtl.h"
-#include "7switch.h"
 #include <WebServer.h>
 #include <RPCmDNS.h>
+#include <Seeed_FS.h>
+#include "SD/Seeed_SD.h"
 
 WebServer server(80);
 Alarm *almptr;
 int almcnt = 0;
-String time_str = "";
 char return_buf[100*256];
 Alarm alarms[256];
 int now_time;
-
+File myFile;
 void handleRoot() {
     server.send(200, "text/plain", "hello from Wio Terminal!");
 }
@@ -49,10 +49,9 @@ void encode_json(){
     Serial.println(return_buf);
 }
 
-void decode_state(const char *state_text){
+void decode_state(const char *state_text, int _sw = 0){
     Serial.println(state_text);
-    Pump *pumptr = &current_state[0];
-    int *onoffptr = &onoff[0];
+    Pump *current = &current_state[0];
     StaticJsonDocument<7*96> pump;
     DeserializationError error = deserializeJson(pump, state_text);
     for (int i = 0; i < MAX_CH; i++){
@@ -60,10 +59,9 @@ void decode_state(const char *state_text){
         StaticJsonDocument<96> cur;
         deserializeJson(cur, tmp);
         String _name = cur["name"];
-        int _sw = cur["state"];
-        pumptr[i].pump_name = _name;
-        pumptr[i].state = _sw;
-        onoffptr[i] = _sw - 1;
+        _sw = _sw ? _sw : cur["state"];
+        current[i].pump_name = _name;
+        current[i].state = digitalRead(rstat[i]) ? _sw : 0;
     }
 }
 
@@ -89,6 +87,38 @@ void decode_json(const char *json_txt){
     }
 }
 
+void sd_setup() {
+    Serial.print("Initializing SD card...");
+    if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
+        Serial.println("initialization failed!");
+        while (1);
+    }
+    Serial.println("Success");
+    String data = "";
+    myFile = SD.open("schedule.txt", FILE_READ);
+    if (myFile) {
+        while (myFile.available()) {
+            data = myFile.readString();
+            Serial.println(data);
+            if (data != "") {
+                decode_json(data.c_str());
+            }
+        }
+        myFile.close();
+    }
+    myFile = SD.open("state.txt", FILE_READ);
+    if (myFile) {
+        while (myFile.available()) {
+            data = myFile.readString();
+            Serial.println(data);
+            if (data != "") {
+                decode_state(data.c_str());
+            }
+        }
+        myFile.close();
+    }
+}
+
 void setup() {
     SetupDisplay();
     rtc_setup(60 * 1000);
@@ -100,9 +130,15 @@ void setup() {
     }
     Serial.println("mDNS responder started");
     server.enableCORS(true);
+    sd_setup();
     server.on("/", handleRoot);
     server.on("/set-schedule", HTTP_POST, []() {
         String json_txt = server.arg("plain");
+        myFile = SD.open("schedule.txt", FILE_WRITE);
+        if (myFile) {
+            myFile.print(json_txt);
+            myFile.close();
+        }
         decode_json(json_txt.c_str());
         encode_json();
         server.send(200, "text/plain", return_buf);
@@ -112,13 +148,29 @@ void setup() {
         DynamicJsonDocument body(7*96);   // 32*3*256(24576) + 7*96(672) + a
         DeserializationError error = deserializeJson(body, json_txt);
         String state_text = body["state"];
-        decode_state(state_text.c_str());
+        myFile = SD.open("state.txt", FILE_WRITE);
+        if (myFile) {
+            myFile.print(state_text);
+            myFile.close();
+        }
+        decode_state(state_text.c_str(), 1);
         encode_json();
         server.send(200, "text/plain", return_buf);
     });
     server.on("/get-data", HTTP_GET, []() {
         encode_json();
         server.send(200, "text/plain", return_buf);
+    });
+    server.on("/post-utdate", HTTP_POST, []() {
+        String json_txt = server.arg("plain");
+        Serial.println(json_txt);
+        DynamicJsonDocument recv_body(256);
+        DeserializationError error = deserializeJson(recv_body, json_txt);
+        unsigned long utdate = recv_body["utdate"];
+        if (devicetime == 0) {
+            devicetime = utdate;
+        }
+        server.send(200, "text/plain", "Success");
     });
     server.onNotFound(handleNotFound);
     server.begin();
@@ -165,7 +217,7 @@ void loop() {
     rtc_update();
     now = rtc.now();
     time_str = now.timestamp(DateTime::TIMESTAMP_DATE) + "  " + now.timestamp(DateTime::TIMESTAMP_TIME);
-    ShowTime(&time_str);
+    ShowText(&time_str);
     ShowPompState();
     server.handleClient();
     cron_delay();

@@ -8,7 +8,6 @@ const int HEIGHT = 120;
 const int Y_OFFSET = 120;
 
 int relay[MAX_CH] = {BCM4, BCM17, BCM27, BCM22, BCM10, BCM9, BCM11};
-int rstat[MAX_CH] = {BCM0, BCM5, BCM6, BCM13, BCM19, BCM26, BCM21};
 
 void SetupDisplay(){
     pinMode(WIO_KEY_A, INPUT_PULLUP);
@@ -27,7 +26,7 @@ void toggle_relay(){
         digitalWrite(relay[ch], !onoff[ch]);
 }
 
-void ShowTime(String *now_time){
+void ShowText(String *now_time){
     tft.setCursor(10, 25);
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_WHITE);
@@ -38,32 +37,34 @@ void ShowTime(String *now_time){
 void ShowPompState(){
     int SW_ROW = (MAX_CH + SW_COLUMN - 1) / SW_COLUMN;
     Pump *current = &current_state[0];
-    int *sw = &onoff[0];
-    // ChangeBin(state, &onoff[0]);
     toggle_relay();
     for (int i = 0; i < SW_ROW; i++){
         for (int j = 0; j < SW_COLUMN; j++){
             if (((j+1) * (i+1)) > MAX_CH)
                 return;
             int ch = i * SW_COLUMN + j;
-            int m = digitalRead(rstat[ch]);
-            current[ch].state = m;
+            if (digitalRead(rstat[ch])) {   // auto true
+                if (current[ch].state == 0) {
+                    current[ch].state = 1;  // default auto value is off
+                }
+            } else {
+                current[ch].state = 0;
+            }
             char mode[10];
             int x_area = WIDTH / SW_COLUMN;
             int y_area = HEIGHT / SW_ROW;
             int x = x_area * j + x_area / 2;
             int y = (y_area + 5) * i + y_area / 2 + Y_OFFSET;
             tft.setTextColor(TFT_WHITE);
-            if(m==0){
+            if(current[ch].state == 0) {
                 strcpy(mode, "Manual");
                 tft.setCursor(x-28, y-5);
             } else {
-                current[ch].state = 1 + sw[ch];
                 strcpy(mode, "Auto");
                 tft.setCursor(x, y);
                 tft.fillCircle(x,y,7,TFT_WHITE);
                 tft.fillCircle(x,y,5,TFT_BLACK);
-                if (sw[ch])
+                if (current[ch].state == 2)
                     tft.fillCircle(x,y,3,TFT_WHITE);
                 tft.setCursor(x-18, y-15);
             }

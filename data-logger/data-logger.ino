@@ -5,7 +5,7 @@
 #include <RPCmDNS.h>
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
-#define MAX_CH 7
+#include "DispCtl.h"
 #define INA228 0x40
 const String FILE_LIST = "file_list.txt";
 
@@ -18,7 +18,7 @@ char swRxBuffer[MAX_CH][16];
 WebServer server(80);
 int now_time;
 String now_date;
-float current_val[MAX_CH] = {0};
+String time_str = "";
 String flag_write = "";
 File myFile;
 
@@ -49,7 +49,14 @@ void server_setup() {
     Serial.println("mDNS responder started");
     server.enableCORS(true);
     server.on("/", handleRoot);
-    server.on("/get-current-val", HTTP_GET, []() {
+    server.on("/get-current-val", HTTP_POST, []() {String json_txt = server.arg("plain");
+        Serial.println(json_txt);
+        DynamicJsonDocument recv_body(256);
+        DeserializationError error = deserializeJson(recv_body, json_txt);
+        unsigned long utdate = recv_body["utdate"];
+        if (devicetime == 0) {
+            devicetime = utdate;
+        }
         String data = "";
         myFile = SD.open("current.txt", FILE_READ);
         if (myFile) {
@@ -97,6 +104,7 @@ void sd_setup() {
 
 void setup() {
     Serial.begin(9600);
+    SetupDisplay();
     rtc_setup(60 * 1000);
     sd_setup();
     for (int i=0; i<MAX_CH; i++) {
@@ -212,6 +220,8 @@ void read_ch() {
 void loop() {
     rtc_update();
     now = rtc.now();
+    time_str = now.timestamp(DateTime::TIMESTAMP_DATE) + "  " + now.timestamp(DateTime::TIMESTAMP_TIME);
+    UpdateDisp(&time_str);
     server.handleClient();
     read_ch();
     save_data();

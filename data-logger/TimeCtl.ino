@@ -13,11 +13,8 @@ void rtc_setup(int update_interval) {
         while (1) delay(10); // stop operating
     }
     if (devicetime == 0) {
-        devicetime = getServertime();
-        if (devicetime == 0) {
-            now = rtc.now();
-            return;
-        }
+        now = rtc.now();
+        return;
     }
     // get and print the current rtc time
     now = rtc.now();
@@ -36,38 +33,12 @@ void rtc_setup(int update_interval) {
  
 }
 
-unsigned long getServertime() {
-    Serial.println("Failed to get time from network time server.");
-    HTTPClient http;
-    http.begin(timeServerSub + "/getdate"); //HTTP
-    Serial.println("Use Golang Server Time");
-    int httpCode = http.GET();
-    unsigned long adjustedTime;
-    if(httpCode > 0) {
-        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-        if(httpCode == HTTP_CODE_OK) {
-            Stream* resp = http.getStreamPtr();
-            DynamicJsonDocument json_response(255);
-            deserializeJson(json_response, *resp);
-            adjustedTime = json_response["date"];
-            adjustedTime += tzOffset;
-        }
-    } else {
-        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
-    }
-    http.end();
-    return adjustedTime;
-}
-
 void rtc_update(){
     if (updateDelay.justFinished()) { // 12 hour loop
         // repeat timer
         updateDelay.repeat(); // repeat
         // update rtc time
         devicetime = getNTPtime();
-        if (devicetime == 0) {
-            devicetime = getServertime();
-        }
         if (devicetime != 0) {
             rtc.adjust(DateTime(devicetime));
             Serial.println("rtc time updated.");

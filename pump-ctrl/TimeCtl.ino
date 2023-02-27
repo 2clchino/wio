@@ -13,11 +13,8 @@ void rtc_setup(int update_interval) {
         while (1) delay(10); // stop operating
     }
     if (devicetime == 0) {
-        devicetime = getServertime();
-        if (devicetime == 0) {
-            now = rtc.now();
-            return;
-        }
+        now = rtc.now();
+        return;
     }
     // get and print the current rtc time
     now = rtc.now();
@@ -36,27 +33,19 @@ void rtc_setup(int update_interval) {
  
 }
 
-unsigned long getServertime() {
-    Serial.println("Failed to get time from network time server.");
-    HTTPClient http;
-    http.begin(timeServerSub + "/getdate"); //HTTP
-    Serial.println("Use Golang Server Time");
-    int httpCode = http.GET();
-    unsigned long adjustedTime;
-    if(httpCode > 0) {
-        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-        if(httpCode == HTTP_CODE_OK) {
-            Stream* resp = http.getStreamPtr();
-            DynamicJsonDocument json_response(255);
-            deserializeJson(json_response, *resp);
-            adjustedTime = json_response["date"];
-            adjustedTime += tzOffset;
-        }
-    } else {
-        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+void connectToWiFi() {
+    Serial.println("Connecting to WiFi network: " + String(ssid));
+    WiFi.begin(ssid, pass);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        time_str = "Connecting to WiFi..";
+        Serial.println(time_str);
+        ShowText(&time_str);
+        WiFi.begin(ssid, pass);
     }
-    http.end();
-    return adjustedTime;
+    Serial.println("Connected to the WiFi network");
+    Serial.print("IP Address: ");
+    Serial.println (WiFi.localIP()); // prints out the device's IP address
 }
 
 void rtc_update(){
@@ -65,9 +54,6 @@ void rtc_update(){
         updateDelay.repeat(); // repeat
         // update rtc time
         devicetime = getNTPtime();
-        if (devicetime == 0) {
-            devicetime = getServertime();
-        }
         if (devicetime != 0) {
             rtc.adjust(DateTime(devicetime));
             Serial.println("rtc time updated.");
