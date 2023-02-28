@@ -2,4 +2,5 @@
 #include "TFT_eSPI.h"
 
 #define MAX_CH 7
-float current_val[MAX_CH] = {0};
+#define CUR_CH MAX_CH + 1
+float current_val[CUR_CH] = {0};

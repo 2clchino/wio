@@ -6,11 +6,16 @@
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
 #include "DispCtl.h"
+#include <Adafruit_MAX31855.h>
 #define INA228 0x40
 const String FILE_LIST = "file_list.txt";
-
 int ina_scl[MAX_CH] = {BCM14, BCM18, BCM24, BCM7, BCM12, BCM20, BCM6};
 int ina_sda[MAX_CH] = {BCM15, BCM23, BCM25, BCM1, BCM16, BCM21, BCM19};
+
+#define MAXDO   PIN_SPI_MISO
+#define MAXCS   PIN_SPI_SS
+#define MAXCLK  PIN_SPI_SCK
+Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 
 SoftWire* ina_i2c[MAX_CH];
 char swTxBuffer[MAX_CH][16];
@@ -104,6 +109,12 @@ void sd_setup() {
 
 void setup() {
     Serial.begin(9600);
+    Serial.print("Initializing sensor...");
+    if (!thermocouple.begin()) {
+       Serial.println("ERROR.");
+       while (1) delay(10);
+    }
+    Serial.println("DONE.");
     SetupDisplay();
     rtc_setup(60 * 1000);
     sd_setup();
@@ -154,9 +165,9 @@ void save_data(){
         float *current = &current_val[0];
         myFile.print(now_time);
         myFile.print(",");
-        for (int i = 0; i < MAX_CH; i++) {
+        for (int i = 0; i < CUR_CH; i++) {
             myFile.print(String(current[i], 2));
-            if (i < MAX_CH - 1) {
+            if (i < CUR_CH - 1) {
                 myFile.print(",");
             }
         }
@@ -214,6 +225,16 @@ void read_ch() {
         // Serial.print(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
         // Serial.println("");
     }
+    double internal = thermocouple.readInternal();
+    double celcius  = thermocouple.readCelsius();
+    if (isnan(celcius)) {
+       Serial.println("Something wrong with thermocouple!");
+    } else {
+      Serial.print(internal);
+      Serial.print(" ");
+      Serial.println(celcius);
+    }
+    current[MAX_CH] = internal + celcius;
     // Serial.println("");
 }
 
