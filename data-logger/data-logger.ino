@@ -59,8 +59,14 @@ void server_setup() {
         DynamicJsonDocument recv_body(256);
         DeserializationError error = deserializeJson(recv_body, json_txt);
         unsigned long utdate = recv_body["utdate"];
-        if (devicetime == 0) {
-            devicetime = utdate;
+        if (devicetime == 0 && utdate > devicetime) {
+            devicetime = utdate + tzOffset;
+            rtc.adjust(DateTime(devicetime));
+            Serial.println("rtc time updated.");
+            // get and print the adjusted rtc time
+            now = rtc.now();
+            Serial.print("Adjusted RTC time is: ");
+            Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
         }
         String data = "";
         myFile = SD.open("current.txt", FILE_READ);
@@ -109,14 +115,17 @@ void sd_setup() {
 
 void setup() {
     Serial.begin(9600);
+    SetupDisplay();
+    rtc_setup(60 * 1000);
+    Serial.println("MAX31855 monitor");
+    // wait for MAX chip to stabilize
+    delay(500);
     Serial.print("Initializing sensor...");
     if (!thermocouple.begin()) {
        Serial.println("ERROR.");
        while (1) delay(10);
     }
     Serial.println("DONE.");
-    SetupDisplay();
-    rtc_setup(60 * 1000);
     sd_setup();
     for (int i=0; i<MAX_CH; i++) {
         ina_i2c[i] = new SoftWire(ina_sda[i], ina_scl[i]);
@@ -219,7 +228,7 @@ void read_ch() {
             sprintf(buf, "[%x/%x/%x]", recv, recv2, recv3);
             // Serial.print(buf);
         }
-        Serial.print(" ");
+        // Serial.print(" ");
         // TODO ADD: determine if the value is valid
         current[i] = float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
         // Serial.print(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
@@ -234,8 +243,7 @@ void read_ch() {
       Serial.print(" ");
       Serial.println(celcius);
     }
-    current[MAX_CH] = internal + celcius;
-    // Serial.println("");
+    current[MAX_CH] = isnan(celcius) ? (float)internal : (float)celcius;
 }
 
 void loop() {
