@@ -20,7 +20,7 @@ void CurrentVal() {
     tft.setTextColor(TFT_WHITE);
     tft.setFreeFont(FSB9);
     float* current = &current_val[0];
-    for (int i = 0; i < MAX_CH; i++) {
+    for (int i = 0; i < CUR_CH; i++) {
         tft.setCursor(10, 25 * (i + 2));
         tft.print("CH");
         tft.print(i);
