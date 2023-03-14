@@ -22,8 +22,11 @@ void SetupDisplay(){
 }
 
 void toggle_relay(){
-    for (int ch=0; ch<MAX_CH; ch++)
-        digitalWrite(relay[ch], !onoff[ch]);
+    Pump *current = &current_state[0];
+    for (int ch=0; ch<MAX_CH; ch++) {
+        int onoff = current[ch].state == 2 ? 1 : 0;
+        digitalWrite(relay[ch], !onoff);
+    }
 }
 
 void ShowText(String *now_time){

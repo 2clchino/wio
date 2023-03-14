@@ -1,6 +1,5 @@
 void rtc_setup(int update_interval) {
     Serial.begin(115200);
-    while (!Serial); // wait for serial port to connect. Needed for native USB
     // setup network before rtc check 
     connectToWiFi();
     // get the time via NTP (udp) call to time server

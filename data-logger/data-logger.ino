@@ -59,14 +59,8 @@ void server_setup() {
         DynamicJsonDocument recv_body(256);
         DeserializationError error = deserializeJson(recv_body, json_txt);
         unsigned long utdate = recv_body["utdate"];
-        if (devicetime == 0 && utdate > devicetime) {
-            devicetime = utdate + tzOffset;
-            rtc.adjust(DateTime(devicetime));
-            Serial.println("rtc time updated.");
-            // get and print the adjusted rtc time
-            now = rtc.now();
-            Serial.print("Adjusted RTC time is: ");
-            Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
+        if (devicetime == 0) {
+            devicetime = utdate;
         }
         String data = "";
         myFile = SD.open("current.txt", FILE_READ);
@@ -115,17 +109,14 @@ void sd_setup() {
 
 void setup() {
     Serial.begin(9600);
-    SetupDisplay();
-    rtc_setup(60 * 1000);
-    Serial.println("MAX31855 monitor");
-    // wait for MAX chip to stabilize
-    delay(500);
     Serial.print("Initializing sensor...");
     if (!thermocouple.begin()) {
        Serial.println("ERROR.");
        while (1) delay(10);
     }
     Serial.println("DONE.");
+    SetupDisplay();
+    rtc_setup(60 * 1000);
     sd_setup();
     for (int i=0; i<MAX_CH; i++) {
         ina_i2c[i] = new SoftWire(ina_sda[i], ina_scl[i]);
@@ -192,6 +183,7 @@ void read_ch() {
     float *current = &current_val[0];
     for (int i=0; i<MAX_CH; i++) {   
         sprintf(buf, "ch %d :", i);
+        Serial.print(buf);
         ina_i2c[i]->beginTransmission(INA228);
         ina_i2c[i]->write(0x3f); // Device ID
         ina_i2c[i]->endTransmission(false);
@@ -203,11 +195,11 @@ void read_ch() {
             recv  = ina_i2c[i]->read();
             if(ina_i2c[i]->available()){
                 recv2 = ina_i2c[i]->read();
-                //Serial.print((recv <<8 | recv2), HEX);
-                Serial.print(recv, HEX);
-                Serial.print(" ");
-                Serial.print(recv2, HEX);
-                Serial.print(" / ");
+                // Serial.print((recv <<8 | recv2), HEX);
+                // Serial.print(recv, HEX);
+                // Serial.print(" ");
+                // Serial.print(recv2, HEX);
+                // Serial.print(" / ");
             }
         }
     
@@ -226,24 +218,25 @@ void read_ch() {
             recv3 = ina_i2c[i]->read();
       
             sprintf(buf, "[%x/%x/%x]", recv, recv2, recv3);
-            // Serial.print(buf);
+            Serial.println(buf);
         }
         // Serial.print(" ");
         // TODO ADD: determine if the value is valid
-        current[i] = float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
+        if (!(recv == 0 && recv2 == 255 && recv3 == 255)) {
+            current[i] = i % 2 == 0 ? float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125) : -float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
+        } else {
+            current[i] = 0;
+        }
         // Serial.print(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
         // Serial.println("");
     }
     double internal = thermocouple.readInternal();
     double celcius  = thermocouple.readCelsius();
-    if (isnan(celcius)) {
-       Serial.println("Something wrong with thermocouple!");
-    } else {
-      Serial.print(internal);
-      Serial.print(" ");
-      Serial.println(celcius);
-    }
+    Serial.print(internal);
+    Serial.print(" ");
+    Serial.println(celcius);
     current[MAX_CH] = isnan(celcius) ? (float)internal : (float)celcius;
+    // Serial.println("");
 }
 
 void loop() {

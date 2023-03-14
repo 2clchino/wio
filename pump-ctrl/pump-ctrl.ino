@@ -49,7 +49,7 @@ void encode_json(){
     Serial.println(return_buf);
 }
 
-void decode_state(const char *state_text, int _sw = 0){
+void decode_state(const char *state_text){
     Serial.println(state_text);
     Pump *current = &current_state[0];
     StaticJsonDocument<7*96> pump;
@@ -59,20 +59,21 @@ void decode_state(const char *state_text, int _sw = 0){
         StaticJsonDocument<96> cur;
         deserializeJson(cur, tmp);
         String _name = cur["name"];
-        _sw = _sw ? _sw : cur["state"];
+        current[i].state = digitalRead(rstat[i]) ? cur["state"] : 0;
         current[i].pump_name = _name;
-        current[i].state = digitalRead(rstat[i]) ? _sw : 0;
     }
 }
 
-void decode_json(const char *json_txt){
+void decode_json(const char *json_txt, int from_sd_flag = 0){
     DynamicJsonDocument body(100*256);   // 32*3*256(24576) + 7*96(672) + a
     almptr = &alarms[0];
     DeserializationError error = deserializeJson(body, json_txt);
     String alarm_text = body["alarm"];
     almcnt = body["cnt"];
-    String state_text = body["state"];
-    decode_state(state_text.c_str());
+    if (!from_sd_flag) {  // when data from sd, don't call decode_state
+        String state_text = body["state"];
+        decode_state(state_text.c_str());
+    }
     /* ------------------------------------
      *  Decode Pump Schedule
      ------------------------------------ */
@@ -101,18 +102,7 @@ void sd_setup() {
             data = myFile.readString();
             Serial.println(data);
             if (data != "") {
-                decode_json(data.c_str());
-            }
-        }
-        myFile.close();
-    }
-    myFile = SD.open("state.txt", FILE_READ);
-    if (myFile) {
-        while (myFile.available()) {
-            data = myFile.readString();
-            Serial.println(data);
-            if (data != "") {
-                decode_state(data.c_str());
+                decode_json(data.c_str(), 1);
             }
         }
         myFile.close();
@@ -148,12 +138,7 @@ void setup() {
         DynamicJsonDocument body(7*96);   // 32*3*256(24576) + 7*96(672) + a
         DeserializationError error = deserializeJson(body, json_txt);
         String state_text = body["state"];
-        myFile = SD.open("state.txt", FILE_WRITE);
-        if (myFile) {
-            myFile.print(state_text);
-            myFile.close();
-        }
-        decode_state(state_text.c_str(), 1);
+        decode_state(state_text.c_str());
         encode_json();
         server.send(200, "text/plain", return_buf);
     });
@@ -168,7 +153,17 @@ void setup() {
         DeserializationError error = deserializeJson(recv_body, json_txt);
         unsigned long utdate = recv_body["utdate"];
         if (devicetime == 0) {
-            devicetime = utdate;
+            devicetime = utdate + tzOffset;
+            Serial.print("RTC time is: ");
+            Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
+            // adjust time using ntp time
+            rtc.adjust(DateTime(devicetime));
+            // print boot update details
+            Serial.println("RTC (boot) time updated.");
+            // get and print the adjusted rtc time
+            now = rtc.now();
+            Serial.print("Adjusted RTC (boot) time is: ");
+            Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
         }
         server.send(200, "text/plain", "Success");
     });
@@ -204,10 +199,10 @@ void alarm_handler(int id){
     ChangeBin(2, almptr[id].week_day, ptr);
     if (ptr[now.dayOfTheWeek()]){
         ChangeBin(3, almptr[id].state, ptr);   // Reuse Buffer
-        int *sw = &onoff[0];
+        Pump *current = &current_state[0];
         for (int i = 0; i < MAX_CH; i++){
             if (ptr[i] > 0){
-                sw[i] = ptr[i] - 1;            // Change State
+                current[i].state = ptr[i];            // Change State
             }
         }
     }
