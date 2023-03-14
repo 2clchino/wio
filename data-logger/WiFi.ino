@@ -1,3 +1,4 @@
+int timeout=0;
 void connectToWiFi() {
     Serial.println("Connecting to WiFi network: " + String(ssid));
     WiFi.begin(ssid, pass);
@@ -5,6 +6,10 @@ void connectToWiFi() {
         delay(500);
         Serial.println("Connecting to WiFi..");
         WiFi.begin(ssid, pass);
+        
+        timeout++;
+        if (timeout > 9)
+            break;
     }
     Serial.println("Connected to the WiFi network");
     Serial.print("IP Address: ");

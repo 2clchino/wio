@@ -3,8 +3,8 @@
 #include <Wire.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include "RTC_SAMD51.h"
-#include "DateTime.h"
+#include "RTClib.h"
+RTC_PCF8523 rtc;
 #include "env.h"
 millisDelay updateDelay; // the update delay object. used for ntp periodic update.
  
@@ -20,7 +20,6 @@ unsigned int localPort = 2390;      // local port to listen for UDP packets
     char timeServer[] = "time.nist.gov"; // extenral NTP server e.g. time.nist.gov
 #endif
 
-String timeServerSub = "http://192.168.11.3:8081";
 const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
  
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
@@ -38,8 +37,6 @@ WiFiUDP udp;
 unsigned long devicetime;
 
 long tzOffset = 32400UL;
-
-RTC_SAMD51 rtc;
  
 // for use by the Adafuit RTClib library
 char daysOfTheWeek[7][12] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };

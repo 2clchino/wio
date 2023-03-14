@@ -1,6 +1,5 @@
 void rtc_setup(int update_interval) {
     Serial.begin(115200);
-    while (!Serial); // wait for serial port to connect. Needed for native USB
     // setup network before rtc check 
     connectToWiFi();
     // get the time via NTP (udp) call to time server
@@ -33,6 +32,7 @@ void rtc_setup(int update_interval) {
  
 }
 
+int timeout = 0;
 void connectToWiFi() {
     Serial.println("Connecting to WiFi network: " + String(ssid));
     WiFi.begin(ssid, pass);
@@ -41,6 +41,9 @@ void connectToWiFi() {
         time_str = "Connecting to WiFi..";
         Serial.println(time_str);
         ShowText(&time_str);
+        timeout++;
+        if (timeout > 9)
+            break;
         WiFi.begin(ssid, pass);
     }
     Serial.println("Connected to the WiFi network");
