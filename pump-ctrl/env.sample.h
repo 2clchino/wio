@@ -1,2 +1,2 @@
 #define ssid "ssid"
-#define password "pass"
+#define pass "pass"

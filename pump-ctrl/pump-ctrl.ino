@@ -1,8 +1,8 @@
-#include "TimeCtl.h"
 #include <WebServer.h>
 #include <RPCmDNS.h>
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
+#include "name_ctrl.h"
 
 WebServer server(80);
 Alarm *almptr;
@@ -68,15 +68,15 @@ void decode_json(const char *json_txt, int from_sd_flag = 0){
     DynamicJsonDocument body(100*256);   // 32*3*256(24576) + 7*96(672) + a
     almptr = &alarms[0];
     DeserializationError error = deserializeJson(body, json_txt);
-    String alarm_text = body["alarm"];
-    almcnt = body["cnt"];
+    String alarm_text = body["alarm"]; // "alarm" フィールドを JsonArray として取得
+    almcnt = body["cnt"].as<int>();
+    Serial.println(almcnt);
     if (!from_sd_flag) {  // when data from sd, don't call decode_state
         String state_text = body["state"];
+        Serial.println(state_text);
         decode_state(state_text.c_str());
     }
-    /* ------------------------------------
-     *  Decode Pump Schedule
-     ------------------------------------ */
+    // Decode Pump Schedule
     Serial.println(alarm_text);
     error = deserializeJson(body, alarm_text);
     for (int i = 0; i < almcnt; i++){
@@ -88,13 +88,7 @@ void decode_json(const char *json_txt, int from_sd_flag = 0){
     }
 }
 
-void sd_setup() {
-    Serial.print("Initializing SD card...");
-    if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
-        Serial.println("initialization failed!");
-        while (1);
-    }
-    Serial.println("Success");
+void readData(){
     String data = "";
     myFile = SD.open("schedule.txt", FILE_READ);
     if (myFile) {
@@ -109,10 +103,22 @@ void sd_setup() {
     }
 }
 
+void sd_setup() {
+    Serial.print("Initializing SD card...");
+    if (!SD.begin(SDCARD_SS_PIN, SDCARD_SPI)) {
+        Serial.println("initialization failed!");
+        while (1);
+    }
+    Serial.println("Success");
+    readData();
+}
+
 void setup() {
     SetupDisplay();
     rtc_setup(60 * 1000);
-    if (!MDNS.begin("pump-ctrl")) {
+    String serviceName = "pump-ctrl-" + String(wio_id);
+    Serial.println(serviceName);
+    if (!MDNS.begin(serviceName.c_str())) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
             delay(1000);
@@ -124,28 +130,29 @@ void setup() {
     server.on("/", handleRoot);
     server.on("/set-schedule", HTTP_POST, []() {
         String json_txt = server.arg("plain");
+        Serial.println(json_txt);
         myFile = SD.open("schedule.txt", FILE_WRITE);
         if (myFile) {
             myFile.print(json_txt);
             myFile.close();
         }
-        decode_json(json_txt.c_str());
-        encode_json();
+        readData();
+        server.send(200, "text/plain", "Success");
+    });
+    server.on("/get-state", HTTP_GET, []() {
+        DynamicJsonDocument body(1024);   // 7*96(672) + a
+        Pump *pumptr = &current_state[0];
+        JsonArray pumps = body.createNestedArray("states");
+        for (int i = 0; i < MAX_CH; i++){
+            JsonObject pump = pumps.createNestedObject();
+            pump["name"] = pumptr[i].pump_name;
+            pump["state"] = pumptr[i].state;
+        }
+        serializeJson(body, return_buf);
         server.send(200, "text/plain", return_buf);
     });
-    server.on("/set-state", HTTP_POST, []() {
-        String json_txt = server.arg("plain");
-        DynamicJsonDocument body(7*96);   // 32*3*256(24576) + 7*96(672) + a
-        DeserializationError error = deserializeJson(body, json_txt);
-        String state_text = body["state"];
-        decode_state(state_text.c_str());
-        encode_json();
-        server.send(200, "text/plain", return_buf);
-    });
-    server.on("/get-data", HTTP_GET, []() {
-        encode_json();
-        server.send(200, "text/plain", return_buf);
-    });
+    server.on("/get-name", HTTP_GET, handleGetName);
+    server.on("/set-name", HTTP_POST, handleSetName);
     server.on("/post-utdate", HTTP_POST, []() {
         String json_txt = server.arg("plain");
         Serial.println(json_txt);

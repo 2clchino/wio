@@ -49,6 +49,8 @@ void connectToWiFi() {
     Serial.println("Connected to the WiFi network");
     Serial.print("IP Address: ");
     Serial.println (WiFi.localIP()); // prints out the device's IP address
+    IPAddress localIP = WiFi.localIP();
+    wio_id = localIP[3];
 }
 
 void rtc_update(){

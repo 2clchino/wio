@@ -23,7 +23,7 @@ void CurrentVal() {
     for (int i = 0; i < CUR_CH; i++) {
         tft.setCursor(10, 25 * (i + 2));
         tft.print("CH");
-        tft.print(i);
+        tft.print(i + 1);
         tft.print(": ");
         tft.print(current[i]);
     }
