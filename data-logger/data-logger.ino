@@ -1,6 +1,6 @@
 #include "SoftWire.h"
 #include "AsyncDelay.h"
-#include "TimeCtl.h"
+#include "name_ctrl.h"
 #include <WebServer.h>
 #include <RPCmDNS.h>
 #include <Seeed_FS.h>
@@ -45,9 +45,11 @@ void handleNotFound() {
 }
 
 void server_setup() {
-    if (!MDNS.begin("data-logger")) {
+    String serviceName = "data-logger-" + String(wio_id);
+    Serial.println(serviceName);
+    if (!MDNS.begin(serviceName.c_str())) {
         Serial.println("Error setting up MDNS responder!");
-            while(1) {
+        while(1) {
             delay(1000);
         }
     }
@@ -72,6 +74,8 @@ void server_setup() {
         }
         server.send(200, "text/plain", data);
     });
+    server.on("/get-name", HTTP_GET, handleGetName);
+    server.on("/set-name", HTTP_POST, handleSetName);
     server.on("/get-current-log", HTTP_POST, []() { // receive file name formatted 2006-01-02T03.txt
         String json_txt = server.arg("plain");
         Serial.println(json_txt);
@@ -163,7 +167,9 @@ void save_data(){
     myFile = SD.open(file_name, FILE_APPEND);
     if (myFile) {
         float *current = &current_val[0];
-        myFile.print(now_time);
+        char time_str[5];
+        sprintf(time_str, "%04d", now_time);
+        myFile.print(time_str);
         myFile.print(",");
         for (int i = 0; i < CUR_CH; i++) {
             myFile.print(String(current[i], 2));
@@ -178,7 +184,54 @@ void save_data(){
     }
 }
 
+void setMode(uint8_t mode) {
+    uint8_t adc_config_value;
+    
+    for (int i = 0; i < MAX_CH; i++) {
+        ina_i2c[i]->beginTransmission(INA228);
+        ina_i2c[i]->write(0x01);
+        ina_i2c[i]->endTransmission(false);
+        
+        ina_i2c[i]->requestFrom(INA228, 1);
+        if (ina_i2c[i]->available()) {
+            adc_config_value = ina_i2c[i]->read();
+        }
+    }
+    
+    adc_config_value &= 0x0F;
+    adc_config_value |= (mode << 4);
+    
+    for (int i = 0; i < MAX_CH; i++) {
+        ina_i2c[i]->beginTransmission(INA228);
+        ina_i2c[i]->write(0x01);
+        ina_i2c[i]->write(adc_config_value);
+        ina_i2c[i]->endTransmission();
+    }
+}
+
+float readCurrent(int deviceAddress) {
+    Wire.beginTransmission(deviceAddress);
+    Wire.write(0x04); // Current register
+    Wire.endTransmission(false);
+    
+    int recv, recv2, recv3;
+    recv = recv2 = recv3 = 0;
+    int got = Wire.requestFrom(deviceAddress, 3);
+    
+    if(Wire.available()){
+        recv  = Wire.read();
+        recv2 = Wire.read();
+        recv3 = Wire.read();
+    }
+    
+    // Convert the raw data to current value
+    float current = float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.15625);
+    
+    return current;
+}
+
 void read_ch() {
+    setMode(0x1);
     char buf[100];
     float *current = &current_val[0];
     for (int i=0; i<MAX_CH; i++) {   
@@ -187,7 +240,6 @@ void read_ch() {
         ina_i2c[i]->beginTransmission(INA228);
         ina_i2c[i]->write(0x3f); // Device ID
         ina_i2c[i]->endTransmission(false);
-        
         int recv, recv2, recv3;
         recv = recv2 = 0;
         ina_i2c[i]->requestFrom(INA228, 2);
@@ -217,8 +269,8 @@ void read_ch() {
             recv2 = ina_i2c[i]->read();
             recv3 = ina_i2c[i]->read();
       
-            sprintf(buf, "[%x/%x/%x]", recv, recv2, recv3);
-            Serial.println(buf);
+            //sprintf(buf, "[%x/%x/%x]", recv, recv2, recv3);
+            //Serial.println(buf);
         }
         // Serial.print(" ");
         // TODO ADD: determine if the value is valid
@@ -227,8 +279,11 @@ void read_ch() {
         } else {
             current[i] = 0;
         }
+        if (i == MAX_CH - 1) {
+            current[i] = readCurrent(INA228);
+        }
         // Serial.print(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
-        // Serial.println("");
+        Serial.println(current[i]);
     }
     double internal = thermocouple.readInternal();
     double celcius  = thermocouple.readCelsius();

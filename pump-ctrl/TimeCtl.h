@@ -10,7 +10,7 @@
 millisDelay updateDelay; // the update delay object. used for ntp periodic update.
  
 unsigned int localPort = 2390;      // local port to listen for UDP packets
- 
+int wio_id = 0;
 // switch between local and remote time servers
 // comment out to use remote server
 // #define USELOCALNTP

@@ -1,15 +1,14 @@
-#include "rpcWiFi.h"
+#include "WiFi.h"
 #include <millisDelay.h>
 #include <Wire.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include "RTClib.h"
-RTC_PCF8523 rtc;
-#include "env.h"
+#include "RTC_SAMD51.h"
+#include "DateTime.h"
+RTC_SAMD51 rtc;
 millisDelay updateDelay; // the update delay object. used for ntp periodic update.
  
 unsigned int localPort = 2390;      // local port to listen for UDP packets
- 
 // switch between local and remote time servers
 // comment out to use remote server
 // #define USELOCALNTP
