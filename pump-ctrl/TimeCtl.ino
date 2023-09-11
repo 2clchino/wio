@@ -39,6 +39,7 @@ void connectToWiFi() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         time_str = "Connecting to WiFi..";
+        time_str += ssid;
         Serial.println(time_str);
         ShowText(&time_str);
         timeout++;

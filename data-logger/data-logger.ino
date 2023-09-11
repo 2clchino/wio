@@ -171,12 +171,30 @@ void save_data(){
         sprintf(time_str, "%04d", now_time);
         myFile.print(time_str);
         myFile.print(",");
+        int temp = 0;
         for (int i = 0; i < CUR_CH; i++) {
-            myFile.print(String(current[i], 2));
-            if (i < CUR_CH - 1) {
-                myFile.print(",");
+            if (i < VOL_CH) {  // Save only odd-indexed values for i = VOL_CH
+                if (i % 2 == 1) {
+                    temp++;
+                    int pairIndex = i - 1;  // Calculate the index of the even number in the pair
+                    if (abs(current[pairIndex]) > abs(current[i])) {
+                        myFile.print(String(current[pairIndex], 2));
+                    } else {
+                        myFile.print(String(current[i], 2));
+                    }
+                    if (i < CUR_CH - 1) {
+                        myFile.print(",");
+                    }
+                }
+            } else {
+                myFile.print(String(current[i], 2));
+                if (i < CUR_CH - 1) {
+                    myFile.print(",");
+                }
+                temp++;
             }
         }
+        Serial.println(temp);
         myFile.print("|");
         myFile.close();
     } else {
@@ -273,7 +291,6 @@ void read_ch() {
             //Serial.println(buf);
         }
         // Serial.print(" ");
-        // TODO ADD: determine if the value is valid
         if (!(recv == 0 && recv2 == 255 && recv3 == 255)) {
             current[i] = i % 2 == 0 ? float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125) : -float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
         } else {
@@ -282,7 +299,6 @@ void read_ch() {
         if (i == MAX_CH - 1) {
             current[i] = readCurrent(INA228);
         }
-        // Serial.print(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
         Serial.println(current[i]);
     }
     double internal = thermocouple.readInternal();

@@ -50,6 +50,7 @@ void encode_json(){
 }
 
 void decode_state(const char *state_text){
+    Serial.println("Decode State Called");
     Serial.println(state_text);
     Pump *current = &current_state[0];
     StaticJsonDocument<7*96> pump;
@@ -64,14 +65,14 @@ void decode_state(const char *state_text){
     }
 }
 
-void decode_json(const char *json_txt, int from_sd_flag = 0){
+void decode_json(const char *json_txt, int from_sd_flag){
     DynamicJsonDocument body(100*256);   // 32*3*256(24576) + 7*96(672) + a
     almptr = &alarms[0];
     DeserializationError error = deserializeJson(body, json_txt);
     String alarm_text = body["alarm"]; // "alarm" フィールドを JsonArray として取得
     almcnt = body["cnt"].as<int>();
     Serial.println(almcnt);
-    if (!from_sd_flag) {  // when data from sd, don't call decode_state
+    if (from_sd_flag == 1) {  // when data from sd, don't call decode_state
         String state_text = body["state"];
         Serial.println(state_text);
         decode_state(state_text.c_str());
@@ -88,7 +89,7 @@ void decode_json(const char *json_txt, int from_sd_flag = 0){
     }
 }
 
-void readData(){
+void readData(int from_sd_flag = 0){
     String data = "";
     myFile = SD.open("schedule.txt", FILE_READ);
     if (myFile) {
@@ -96,7 +97,7 @@ void readData(){
             data = myFile.readString();
             Serial.println(data);
             if (data != "") {
-                decode_json(data.c_str(), 1);
+                decode_json(data.c_str(), from_sd_flag);
             }
         }
         myFile.close();
@@ -110,12 +111,12 @@ void sd_setup() {
         while (1);
     }
     Serial.println("Success");
-    readData();
+    readData(0);
 }
 
 void setup() {
     SetupDisplay();
-    rtc_setup(60 * 1000);
+    rtc_setup(10 * 1000);
     String serviceName = "pump-ctrl-" + String(wio_id);
     Serial.println(serviceName);
     if (!MDNS.begin(serviceName.c_str())) {
@@ -136,7 +137,7 @@ void setup() {
             myFile.print(json_txt);
             myFile.close();
         }
-        readData();
+        readData(1);
         server.send(200, "text/plain", "Success");
     });
     server.on("/get-state", HTTP_GET, []() {
