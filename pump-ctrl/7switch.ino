@@ -21,6 +21,13 @@ void SetupDisplay(){
     tft.setRotation(3);
 }
 
+void WioStatus(String *state){
+    tft.setTextColor(TFT_WHITE);
+    tft.setFreeFont(FSB9);
+    tft.setCursor(10, 50);
+    tft.print(*state);
+}
+
 void toggle_relay(){
     Pump *current = &current_state[0];
     for (int ch=0; ch<MAX_CH; ch++) {
@@ -35,6 +42,9 @@ void ShowText(String *now_time){
     tft.setTextColor(TFT_WHITE);
     tft.setFreeFont(FSB9);
     tft.print(*now_time);
+    if (wio_name == "" || wio_name == "Wio 0")
+        get_name(0);
+    WioStatus(&wio_name);
 }
 
 void ShowPompState(){

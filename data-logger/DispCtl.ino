@@ -14,18 +14,44 @@ void UpdateDisp(String *now_time) {
     DispFill();
     CurrentVal();
     ShowTime(+now_time);
+    if (wio_name == "" || wio_name == "Wio 0")
+        get_name(0);
+    WioStatus(&wio_name);
+}
+
+void WioStatus(String *state){
+    tft.setTextColor(TFT_WHITE);
+    tft.setFreeFont(FSB9);
+    tft.setCursor(10, 50);
+    tft.print(*state);
 }
 
 void CurrentVal() {
     tft.setTextColor(TFT_WHITE);
     tft.setFreeFont(FSB9);
     float* current = &current_val[0];
+    int temp = 0;
     for (int i = 0; i < CUR_CH; i++) {
-        tft.setCursor(10, 25 * (i + 2));
+        tft.setCursor(10, 25 * (temp + 5));
         tft.print("CH");
-        tft.print(i + 1);
+        tft.print(temp + 1);
         tft.print(": ");
-        tft.print(current[i]);
+        if (i < VOL_CH) {  // Show only odd-indexed values for i = VOL_CH
+            if (i % 2 == 1) {
+                int pairIndex = i - 1;  // Calculate the index of the even number in the pair
+                String val;
+                if (abs(current[pairIndex]) > abs(current[i])) {
+                    val = String(current[pairIndex], 2);
+                } else {
+                    val = String(current[i], 2);
+                }
+                tft.print(val);
+                temp++;
+            }
+        } else {
+            tft.print(String(current[i], 2));
+            temp++;
+        }
     }
 }
 

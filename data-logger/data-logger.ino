@@ -1,6 +1,5 @@
 #include "SoftWire.h"
 #include "AsyncDelay.h"
-#include "name_ctrl.h"
 #include <WebServer.h>
 #include <RPCmDNS.h>
 #include <Seeed_FS.h>
@@ -22,6 +21,7 @@ char swTxBuffer[MAX_CH][16];
 char swRxBuffer[MAX_CH][16];
 WebServer server(80);
 int now_time;
+int now_hour;
 String now_date;
 String time_str = "";
 String flag_write = "";
@@ -73,28 +73,10 @@ void server_setup() {
             myFile.close();
         }
         server.send(200, "text/plain", data);
+        move_file();
     });
     server.on("/get-name", HTTP_GET, handleGetName);
     server.on("/set-name", HTTP_POST, handleSetName);
-    server.on("/get-current-log", HTTP_POST, []() { // receive file name formatted 2006-01-02T03.txt
-        String json_txt = server.arg("plain");
-        Serial.println(json_txt);
-        DynamicJsonDocument recv_body(256);
-        DeserializationError error = deserializeJson(recv_body, json_txt);
-        String file = recv_body["file"];
-        Serial.println(file);
-        String data = "";
-        myFile = SD.open("current.txt", FILE_READ);
-        if (myFile) {
-            while (myFile.available()) {
-                data = myFile.readString();
-            }
-            myFile.close();
-        }
-        Serial.println(data);
-        flag_write = file;
-        server.send(200, "text/plain", data);
-    });
     server.onNotFound(handleNotFound);
     server.begin();
     MDNS.addService("http", "tcp", 80);
@@ -134,9 +116,17 @@ void setup() {
     server_setup();
 }
 
+String formatDate(DateTime dt) {
+    char buffer[20];
+    sprintf(buffer, "%04d-%02d-%02dT%02d", dt.year(), dt.month(), dt.day(), dt.hour());
+    return String(buffer);
+}
+
 void move_file() {
-    if (flag_write == "")
+    if (now_hour == now.hour())
         return;
+    now_hour = now.hour();
+    String formattedTime = formatDate(now);
     String data = "";
     myFile = SD.open("current.txt", FILE_READ);
     if (myFile) {
@@ -145,7 +135,7 @@ void move_file() {
         }
         myFile.close();
     }
-    myFile = SD.open(flag_write, FILE_WRITE);
+    myFile = SD.open(formattedTime + ".txt", FILE_APPEND);
     if (myFile) {
         myFile.print(data);
         myFile.close();
@@ -154,14 +144,13 @@ void move_file() {
     if (myFile) {
         myFile.close();
     }
-    flag_write = "";
+    now_hour = now.hour();
     Serial.println("logs are moved from current.txt");
 }
 
 void save_data(){
     if (now_time == now.hour() * 100 + now.minute())   // already triggered
         return;
-    move_file();
     now_time = now.hour() * 100 + now.minute();
     String file_name = "current.txt";
     myFile = SD.open(file_name, FILE_APPEND);
@@ -171,11 +160,9 @@ void save_data(){
         sprintf(time_str, "%04d", now_time);
         myFile.print(time_str);
         myFile.print(",");
-        int temp = 0;
         for (int i = 0; i < CUR_CH; i++) {
             if (i < VOL_CH) {  // Save only odd-indexed values for i = VOL_CH
                 if (i % 2 == 1) {
-                    temp++;
                     int pairIndex = i - 1;  // Calculate the index of the even number in the pair
                     if (abs(current[pairIndex]) > abs(current[i])) {
                         myFile.print(String(current[pairIndex], 2));
@@ -191,10 +178,8 @@ void save_data(){
                 if (i < CUR_CH - 1) {
                     myFile.print(",");
                 }
-                temp++;
             }
         }
-        Serial.println(temp);
         myFile.print("|");
         myFile.close();
     } else {
@@ -228,23 +213,32 @@ void setMode(uint8_t mode) {
 }
 
 float readCurrent(int deviceAddress) {
-    Wire.beginTransmission(deviceAddress);
-    Wire.write(0x04); // Current register
-    Wire.endTransmission(false);
+    setMode(0x1);
+    char buf[100];
+    ina_i2c[MAX_CH-1]->beginTransmission(deviceAddress);
+    ina_i2c[MAX_CH-1]->write(0x07); // Current register
+    ina_i2c[MAX_CH-1]->endTransmission(deviceAddress);
     
     int recv, recv2, recv3;
     recv = recv2 = recv3 = 0;
-    int got = Wire.requestFrom(deviceAddress, 3);
-    
-    if(Wire.available()){
-        recv  = Wire.read();
-        recv2 = Wire.read();
-        recv3 = Wire.read();
+    int got = ina_i2c[MAX_CH-1]->requestFrom(deviceAddress, 3);
+    // sprintf(buf, "Got %d bytes: ", got);
+    // Serial.println(buf);
+    if(ina_i2c[MAX_CH-1]->available()){
+        recv  = ina_i2c[MAX_CH-1]->read();
+        recv2 = ina_i2c[MAX_CH-1]->read();
+        recv3 = ina_i2c[MAX_CH-1]->read();
+        sprintf(buf, "[%x/%x/%x]", recv, recv2, recv3);
+        Serial.println(buf);
     }
     
     // Convert the raw data to current value
-    float current = float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.15625);
-    
+    float current = 0;
+    if (recv != 255 && recv2 != 255 && recv3 != 255 && got > 0) {
+        current = float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.15625);
+    } else {
+        current = -float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.15625);
+    }
     return current;
 }
 
@@ -252,7 +246,7 @@ void read_ch() {
     setMode(0x1);
     char buf[100];
     float *current = &current_val[0];
-    for (int i=0; i<MAX_CH; i++) {   
+    for (int i=0; i<MAX_CH - 1; i++) {   
         sprintf(buf, "ch %d :", i);
         Serial.print(buf);
         ina_i2c[i]->beginTransmission(INA228);
@@ -265,11 +259,6 @@ void read_ch() {
             recv  = ina_i2c[i]->read();
             if(ina_i2c[i]->available()){
                 recv2 = ina_i2c[i]->read();
-                // Serial.print((recv <<8 | recv2), HEX);
-                // Serial.print(recv, HEX);
-                // Serial.print(" ");
-                // Serial.print(recv2, HEX);
-                // Serial.print(" / ");
             }
         }
     
@@ -290,24 +279,28 @@ void read_ch() {
             //sprintf(buf, "[%x/%x/%x]", recv, recv2, recv3);
             //Serial.println(buf);
         }
-        // Serial.print(" ");
         if (!(recv == 0 && recv2 == 255 && recv3 == 255)) {
             current[i] = i % 2 == 0 ? float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125) : -float(((recv<<16 | recv2<<8 | recv3)>>4) * 0.0001953125);
         } else {
             current[i] = 0;
-        }
-        if (i == MAX_CH - 1) {
-            current[i] = readCurrent(INA228);
-        }
-        Serial.println(current[i]);
+        }  
+        Serial.print(current[i]);
+        Serial.print(", ");
     }
+    // read current
+    float val = readCurrent(INA228);
+    current[MAX_CH-1] = val > 0 ? val : current[MAX_CH-1];
+    Serial.print(current[MAX_CH-1]);
+    Serial.print(", ");
+
+    // read thermo
     double internal = thermocouple.readInternal();
     double celcius  = thermocouple.readCelsius();
-    Serial.print(internal);
+    /*Serial.print(internal);
     Serial.print(" ");
-    Serial.println(celcius);
+    Serial.println(celcius);*/
     current[MAX_CH] = isnan(celcius) ? (float)internal : (float)celcius;
-    // Serial.println("");
+    Serial.println(current[MAX_CH]);
 }
 
 void loop() {

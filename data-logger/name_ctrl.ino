@@ -25,18 +25,17 @@ void set_name(const char *name) {
 }
 
 String get_name(int num) {
-  String name = "";
-
   File dataFile = SD.open("name.txt");
+  wio_name = "";
   if (dataFile) {
     while (dataFile.available()) {
-      name += (char)dataFile.read();
+      wio_name += (char)dataFile.read();
     }
     dataFile.close();
   } else {
     Serial.println("name.txt not found. Returning default name.");
-    name = "Wio " + String(num); // default
+    wio_name = "Wio " + String(num); // default
   }
 
-  return name;
+  return wio_name;
 }
