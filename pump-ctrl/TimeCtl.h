@@ -7,6 +7,7 @@
 #include "DateTime.h"
 #include "env.h"
 #include "7switch.h"
+#include "name_ctrl.h"
 millisDelay updateDelay; // the update delay object. used for ntp periodic update.
  
 unsigned int localPort = 2390;      // local port to listen for UDP packets

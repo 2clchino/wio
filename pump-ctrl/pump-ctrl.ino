@@ -2,7 +2,7 @@
 #include <RPCmDNS.h>
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
-#include "name_ctrl.h"
+#include "TimeCtl.h"
 
 WebServer server(80);
 Alarm *almptr;

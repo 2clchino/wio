@@ -1,5 +1,6 @@
 #include "Free_Fonts.h"
 #include "TFT_eSPI.h"
+#include "name_ctrl.h"
 
 #define MAX_CH 7
 #define VOL_CH 6
