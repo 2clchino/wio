@@ -1,6 +1,6 @@
 void handleGetName() {
-  String name = get_name(wio_id);
-  server.send(200, "text/plain", name);
+  String _name = get_name(wio_id);
+  server.send(200, "text/plain", _name);
 }
 
 void handleSetName() {
@@ -22,20 +22,39 @@ void set_name(const char *name) {
   } else {
     Serial.println("Error opening name.txt for writing.");
   }
+  String names = String(get_name(0));
+  processWioData(names);
+}
+
+void processWioData(String state) {
+    DynamicJsonDocument doc(jsonCapacity);
+    DeserializationError error = deserializeJson(doc, state);
+
+    if (error) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        tft.println("Web can't find this wio");
+        return;
+    }
+
+    JsonObject wio = doc["wio"];
+    wio_ip = wio["ip"].as<String>(); // "10.1.2.12"
+    wio_name = wio["name"].as<String>(); // "Pump 0"
+    wio_number = wio["number"]; // 1
 }
 
 String get_name(int num) {
   File dataFile = SD.open("name.txt");
-  wio_name = "";
+  String wio_data = "";
   if (dataFile) {
     while (dataFile.available()) {
-      wio_name += (char)dataFile.read();
+      wio_data += (char)dataFile.read();
     }
     dataFile.close();
   } else {
     Serial.println("name.txt not found. Returning default name.");
-    wio_name = "Wio " + String(num); // default
+    wio_data = "Wio " + String(num); // default
   }
 
-  return wio_name;
+  return wio_data;
 }

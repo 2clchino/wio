@@ -21,11 +21,18 @@ void SetupDisplay(){
     tft.setRotation(3);
 }
 
-void WioStatus(String *state){
+void displayWioInfo() {
     tft.setTextColor(TFT_WHITE);
     tft.setFreeFont(FSB9);
-    tft.setCursor(10, 50);
-    tft.print(*state);
+    tft.setCursor(10, 45);
+    tft.print("Name: ");
+    tft.print(wio_name);
+    tft.setCursor(10, 70);
+    tft.print("Number: ");
+    tft.println(wio_number);
+    tft.setCursor(10, 95);
+    tft.print("IP Address: ");
+    tft.print(wio_ip);
 }
 
 void toggle_relay(){
@@ -42,9 +49,7 @@ void ShowText(String *now_time){
     tft.setTextColor(TFT_WHITE);
     tft.setFreeFont(FSB9);
     tft.print(*now_time);
-    if (wio_name == "" || wio_name == "Wio 0")
-        get_name(0);
-    WioStatus(&wio_name);
+    displayWioInfo();
 }
 
 void ShowPompState(){
